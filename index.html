@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Nicole</title>
+</head>
+<body>
+
+    <button id="nicole-btn" onclick="toggleNicole()" style="
+        position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+        width: 60px; height: 60px; border-radius: 50%;
+        background: #4B0082; color: white; border: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
+        font-size: 30px; display: flex; align-items: center; justify-content: center;
+        transition: transform 0.2s;">
+        💬
+    </button>
+
+    <div id="nicole-box" style="
+        display: none; position: fixed; bottom: 90px; right: 20px; z-index: 9999;
+        width: 350px; height: 500px; background: white;
+        border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        flex-direction: column; overflow: hidden; border: 1px solid #eee; font-family: sans-serif;">
+        
+        <div style="background: #4B0082; color: white; padding: 15px; font-weight: bold; display: flex; align-items: center;">
+            <span>Nicole Orithyia</span>
+            <span style="margin-left: auto; cursor: pointer; font-size: 20px;" onclick="toggleNicole()">×</span>
+        </div>
+
+        <div id="nicole-content" style="flex: 1; padding: 15px; overflow-y: auto; background: #f5f5f5; font-size: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="align-self: flex-start; background: #e6e6fa; color: black; padding: 8px 12px; border-radius: 10px; max-width: 80%;">
+                Halo! Saya Nicole. Ada yang bisa dibantu?
+            </div>
+        </div>
+
+        <div style="padding: 10px; border-top: 1px solid #ddd; background: white; display: flex; align-items: center;">
+            <input type="text" id="nicole-input" placeholder="Ketik pesan..." style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; outline: none; margin-right: 5px;" onkeypress="handleEnter(event)">
+            <button onclick="kirimPesan()" style="background: #4B0082; color: white; border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer;">➤</button>
+        </div>
+    </div>
+
+    <script>
+        // --- BAGIAN INI WAJIB DIGANTI ---
+        // Masukkan link Vercel kamu, dan jangan lupa tambah /chat di belakangnya
+        const BASE_URL = "https://nicole-ivory.vercel.app"; // Contoh: https://nicole-backend.vercel.app
+        const API_URL = BASE_URL + "/chat"; 
+        // --------------------------------
+
+        function toggleNicole() {
+            const box = document.getElementById("nicole-box");
+            if (box.style.display === "none") {
+                box.style.display = "flex";
+            } else {
+                box.style.display = "none";
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === "Enter") kirimPesan();
+        }
+
+        async function kirimPesan() {
+            const input = document.getElementById("nicole-input");
+            const content = document.getElementById("nicole-content");
+            const pesan = input.value.trim();
+            
+            if (!pesan) return;
+
+            // 1. Tampilkan pesan user (Kanan)
+            content.innerHTML += `
+                <div style="align-self: flex-end; background: #4B0082; color: white; padding: 8px 12px; border-radius: 10px; max-width: 80%;">
+                    ${pesan}
+                </div>`;
+            
+            input.value = "";
+            content.scrollTop = content.scrollHeight; // Auto scroll ke bawah
+
+            // 2. Tampilkan Loading (Kiri)
+            const loadingId = "loading-" + Date.now();
+            content.innerHTML += `
+                <div id="${loadingId}" style="align-self: flex-start; color: gray; font-size: 12px; margin-left: 5px;">
+                    Nicole sedang mengetik...
+                </div>`;
+            content.scrollTop = content.scrollHeight;
+
+            try {
+                // 3. Kirim ke Vercel (API)
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: pesan })
+                });
+
+                const data = await response.json();
+                
+                // Hapus tulisan loading
+                document.getElementById(loadingId).remove();
+
+                // 4. Tampilkan Balasan Bot (Kiri)
+                // Ubah baris baru (\n) jadi <br> biar rapi
+                const balasan = data.reply.replace(/\n/g, "<br>");
+                
+                content.innerHTML += `
+                    <div style="align-self: flex-start; background: #e6e6fa; color: black; padding: 8px 12px; border-radius: 10px; max-width: 80%;">
+                        ${balasan}
+                    </div>`;
+
+            } catch (error) {
+                document.getElementById(loadingId).innerText = "Maaf, bot sedang error atau offline.";
+                console.error(error);
+            }
+            content.scrollTop = content.scrollHeight;
+        }
+    </script>
+    </body>
+</html>
