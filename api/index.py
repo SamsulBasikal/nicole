@@ -144,6 +144,7 @@ def tanya_ai(prompt_user, context_data):
     - Jika tidak tahu jawabannya,katakan 'Maaf saya tidak tahu.'
     - Gunakan bahasa Indonesia yang baik dan benar.
     - Jangan buat-buat informasi yang tidak ada di sumber data.
+    - Jika ada yang menanyakan jadwal atau info mahasiswa maka suruh mereka mencari dengan format jadwal (hari/seminggu) dan untuk info suruh info(mahasiswa).
     """
 
     try:
