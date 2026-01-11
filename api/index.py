@@ -2,30 +2,25 @@ import os
 import json
 from datetime import datetime
 import pytz
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# --- 1. SETUP APLIKASI (PENGGANTI ST.SET_PAGE_CONFIG) ---
 app = FastAPI()
 
-# Wajib ada supaya widget di website kampus bisa akses bot ini
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- 2. SETUP FIREBASE & GROQ (SAMA PERSIS DENGAN KODEMU) ---
-# Kita pakai try-except agar aman di Vercel
 try:
     if not firebase_admin._apps:
-        # Mengambil credentials dari Environment Variable Vercel
         snapshot = os.environ.get("FIREBASE_CREDENTIALS")
         if snapshot:
             key_dict = json.loads(snapshot)
@@ -38,26 +33,29 @@ try:
     db = firestore.client()
 except Exception as e:
     db = None
-    print(f"Error Firebase: {e}")
+    print(f"Gagal Login Firebase: {e}")
 
-# Setup Groq
 api_key_groq = os.environ.get("GROQ_API_KEY")
 client = Groq(api_key=api_key_groq)
 
-# --- 3. LOGIKA/FITUR (COPY PASTE DARI KODEMU) ---
-
 def get_info_akademik():
-    # (SAMA PERSIS)
     info = """
     PANDUAN AKADEMIK KAMPUS:
-    1. CARA ISI KRS: Login student -> Menu Akademik -> Pengajuan -> Pilih Matkul -> Simpan.
-    2. Cara Validasi Kehadiran: Login student -> Proses Pembelajaran -> Kehadiran -> Klik ikon B.
+    1. CARA ISI KRS:
+       - Login ke website 'student.amikompurwokerto.ac.id'.
+       - Pilih menu 'Akademik' -> 'Pengajuan'.
+       - Pilih mata kuliah yang ingin diambil.
+       - Klik 'Simpan' dan tunggu teraktivitasi.
+    2. Cara Validasi Kehadiran:
+       - Login ke website 'student.amikompurwokerto.ac.id'.
+       - Pilih menu 'Proses Pembelajaran' -> 'Kehadiran'.
+       - Pilih Tahun ajaran,Semester,dan Mata kuliah.
+       - Klik Logo atau ikon B dan validasi.
     """
     return info
 
 def cari_mahasiswa(nama_panggilan):
-    if not db: return "Maaf, Database sedang tidak terhubung."
-    
+    if not db: return "Database error."
     nama_clean = nama_panggilan.lower().strip()
     try:
         doc_ref = db.collection('mahasiswa').document(nama_clean)
@@ -69,15 +67,13 @@ def cari_mahasiswa(nama_panggilan):
             kelas = data.get('kelas')
             hobi = data.get('hobi', '-') 
             return f"Nama: {nama_lengkap}, Kelas: {kelas}, Hobi: {hobi}"
-        return "Data mahasiswa tidak ditemukan."
-    except Exception as e:
-        return f"Error database: {str(e)}"
+        return None
+    except:
+        return None
 
 def cari_jadwal(hari):
-    # (SAMA PERSIS)
-    if not db: return "Maaf, Database sedang tidak terhubung."
+    if not db: return "Database error."
     hari_bersih = hari.lower().strip()
-    
     try:
         doc_ref = db.collection('jadwal').document(hari_bersih)
         doc = doc_ref.get()
@@ -90,12 +86,30 @@ def cari_jadwal(hari):
             else:
                 return f"Jadwal {hari.capitalize()} kosong/libur."
         return f"Tidak ada jadwal untuk hari {hari.capitalize()}."
-    except Exception as e:
-        return f"Error database: {str(e)}"
+    except:
+        return "Gagal mengambil data jadwal."
 
-# --- 4. LOGIKA LLM (HAMPIR SAMA, CUMA RAPIKAN DIKIT) ---
+def cari_jadwal_seminggu():
+    if not db: return "Database error."
+    list_hari = ["senin", "selasa", "rabu", "kamis", "jumat", "sabtu", "minggu"]
+    hasil_teks = "DATA JADWAL SEMINGGU:\n"
+    
+    try:
+        for hari in list_hari:
+            doc_ref = db.collection('jadwal').document(hari)
+            doc = doc_ref.get()
+            
+            if doc.exists:
+                data = doc.to_dict()
+                matkul = data.get('matkul', '-')
+                hasil_teks += f"- {hari.capitalize()}: {matkul}\n"
+            else:
+                hasil_teks += f"- {hari.capitalize()}: Libur/Tidak ada data\n"
+        return hasil_teks
+    except:
+        return "Gagal mengambil data seminggu."
 
-def tanya_ai_logic(prompt_user, context_data):
+def tanya_ai(prompt_user, context_data):
     zona_wib = pytz.timezone('Asia/Jakarta')
     now = datetime.now(zona_wib)
     
@@ -109,7 +123,6 @@ def tanya_ai_logic(prompt_user, context_data):
 
     info_umum = get_info_akademik()
     
-    # Prompt System (SAMA PERSIS DENGAN KODEMU)
     system_prompt = f"""
     Kamu adalah Asisten Kampus yang bernama Nicole Orithyia,kamu merupakan 
     asisten yang ramah dan sangat suka membantu.Selain itu kamu suka membalas pertanyaan dengan kalimat sastra yang indah.
@@ -130,6 +143,7 @@ def tanya_ai_logic(prompt_user, context_data):
     - Jika user bercanda,kamu boleh bercanda juga.
     - Jika tidak tahu jawabannya,katakan 'Maaf saya tidak tahu.'
     - Gunakan bahasa Indonesia yang baik dan benar.
+    - Jangan buat-buat informasi yang tidak ada di sumber data.
     """
 
     try:
@@ -144,39 +158,39 @@ def tanya_ai_logic(prompt_user, context_data):
     except Exception as e:
         return f"Maaf,sedang error: {e}"
 
-# --- 5. BAGIAN BARU: PINTU MASUK API (PENGGANTI ST.CHAT_INPUT) ---
-
 class ChatRequest(BaseModel):
     message: str
 
 @app.get("/")
 def home():
-    return {"status": "Nicole Orithyia siap melayani!"}
+    return {"status": "shodo sakusen jikkou"}
 
 @app.post("/chat")
-async def chat_endpoint(request: ChatRequest):
-    prompt = request.message
+async def chat_endpoint(req: ChatRequest):
+    prompt = req.message
     pesan_lower = prompt.lower()
     context_data = ""
 
-    # --- LOGIKA IF-ELSE KAMU PINDAH KE SINI ---
-    # Logika Cek jadwal 
-    if "jadwal" in pesan_lower:
+    if "seminggu" in pesan_lower:
+        context_data = cari_jadwal_seminggu()
+
+    elif "jadwal" in pesan_lower:
         hari_list = ["senin", "selasa", "rabu", "kamis", "jumat", "sabtu", "minggu"]
         found_hari = next((h for h in hari_list if h in pesan_lower), None)
         
         if found_hari:
             context_data = cari_jadwal(found_hari)
         else:
-            context_data = "User bertanya jadwal tapi lupa sebut harinya."
-        
+            context_data = "User tanya jadwal tapi tidak sebut hari. Sarankan untuk menyebut hari atau ketik 'Jadwal Seminggu'."
+            
     elif "info" in pesan_lower:
-        # Logika Cek nama info [nama]
         nama = pesan_lower.replace("info", "").strip()
-        context_data = f"Info Mahasiswa: {cari_mahasiswa(nama)}"
+        hasil = cari_mahasiswa(nama)
+        if hasil:
+            context_data = f"Info Mahasiswa: {hasil}"
+        else:
+            context_data = "Data mahasiswa tidak ditemukan di database."
 
-    # Kirim ke AI
-    jawaban = tanya_ai_logic(prompt, context_data)
+    jawaban = tanya_ai(prompt, context_data)
     
-    # Kembalikan jawaban ke Widget
     return {"reply": jawaban}
